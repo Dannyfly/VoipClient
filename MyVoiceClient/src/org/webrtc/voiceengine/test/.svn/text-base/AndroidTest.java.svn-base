@@ -1,0 +1,618 @@
+/*
+ * Copyright (c) 2011 The WebRTC project authors. All Rights Reserved.
+ *
+ * Use of this source code is governed by a BSD-style license that can be found
+ * in the LICENSE file in the root of the source tree. An additional
+ * intellectual property rights grant can be found in the file PATENTS. All
+ * contributing project authors may be found in the AUTHORS file in the root of
+ * the source tree.
+ */
+
+/*
+ * VoiceEngine Android test application. It starts either auto test or acts like
+ * a GUI test.
+ */
+
+package org.webrtc.voiceengine.test;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Color;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
+
+public class AndroidTest extends Activity {
+
+    private int _maxVolume = 0; 		// Android max level (commonly 5)
+    private int _volumeLevel = 204;
+    int currVolume;
+    
+    private boolean _bIsSpeakerOn = true;
+    
+    private EditText edIpAddr;
+    
+    private EditText edBitRate;
+    private EditText edLossPercentage;
+    
+    private boolean _isCallActive = false;
+
+    private int _channel 	= -1;		// 频道号
+    private int _codecIndex = 0;		// codec
+    private int _ecIndex 	= 0;		// AECM
+    private int _nsIndex 	= 0;		// NS
+    private int _agcIndex 	= 0;		// AGC
+    private int _vadIndex 	= 0;		// VAD
+    private int ECmode = 4;
+    private int NSmode = 3;
+    private int AGCmode = 5;
+    
+    private int _audioIndex 	= 3;
+    private int _settingMenu 	= 0;
+    
+    private int _receivePort 	 	= 1234;				// 接收端口号
+    private int _destinationPort 	= 1234;				// 目标端口号
+    private String _destinationIP 	= "127.0.0.1";		// 目标IP
+//    private String _destinationIP 	= "192.168.1.1";	// 目标IP
+ 
+    private static final String TAG = "***Danny***"; 
+
+    private final boolean enableSend 	= true;
+    private final boolean enableReceive = true;
+    
+    
+    private Spinner spAECM;
+    private Spinner spNS;
+    private Spinner spAGC ;
+
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+        
+		//////////////////////////////////
+		//  设置editText中IP为127.0.0.1	//
+		//////////////////////////////////
+        edIpAddr = (EditText) findViewById(R.id.etIpAddr);
+        edIpAddr.setWidth(400);
+        edIpAddr.setText(_destinationIP);
+        
+		//////////////////////////////////
+		//     模拟 编码比特率 和 丢包率 	//
+		//////////////////////////////////
+        edBitRate = (EditText) findViewById(R.id.etBitRate);
+        edLossPercentage = (EditText) findViewById(R.id.etLossPercentage);
+        
+		////////////////////////////////////////
+		// 	   "SpeakerOn/SpeakerOff" 按钮	  //
+		////////////////////////////////////////
+		final Button buttonSpeaker = (Button) findViewById(R.id.btSpeakerOn);
+		buttonSpeaker.setWidth(200);
+		buttonSpeaker.setText("SpeakerOn");
+		buttonSpeaker.setEnabled(false);
+//		buttonSpeaker.setTextColor(Color.GRAY);
+		buttonSpeaker.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				if(_bIsSpeakerOn)
+				{
+					OpenSpeaker();		// 打开扬声器
+					buttonSpeaker.setText("SpeakerOff");
+					_bIsSpeakerOn = false;
+				}
+				else
+				{
+					CloseSpeaker();		// 关闭扬声器
+					buttonSpeaker.setText("SpeakerOn");
+					_bIsSpeakerOn = true;
+				}
+			}
+		});
+        
+		//////////////////////////////////
+		// 	  "Start/Stop Call" 按钮 	//
+		//////////////////////////////////
+        final Button buttonStart = (Button) findViewById(R.id.btStartCall);
+        buttonStart.setWidth(200);
+        buttonStart.setText("Start Call");
+        buttonStart.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (_isCallActive) {		// Stop Call
+                    if (stopCall() != -1) {
+                        _isCallActive = false;
+                        buttonStart.setText("Start Call");
+                        buttonSpeaker.setEnabled(false);
+//                		buttonSpeaker.setTextColor(Color.GRAY);
+                    }
+                } else {					// Start Call
+                    _destinationIP = edIpAddr.getText().toString();
+                    if (startCall() != -1) {
+                        _isCallActive = true;
+                        buttonStart.setText("Stop Call");
+                        buttonSpeaker.setEnabled(true);
+//                		buttonSpeaker.setTextColor(Color.GRAY);
+                    }
+                }
+            }
+        });
+        
+		//////////////////////////////////
+		// 		"Close App" 按钮			//
+		//////////////////////////////////
+		final Button buttonStop = (Button) findViewById(R.id.btStopCall);
+		buttonStop.setWidth(200);
+		buttonStop.setText("Close App");
+		buttonStop.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				finish();
+			}
+		});
+        
+        //-----------------------
+        // 创建 VoiceEngine 对象
+        //-----------------------
+    	Log.v("TAG "," ####### Create() ######## ");
+        Create();
+        
+        Log.v(" TAG "," ########## setVolumeControlStream() #########");
+        setVolumeControlStream(AudioManager.STREAM_VOICE_CALL);    // 设置为通话默认音量
+        
+		//////////////////////////////////
+		// 		Codec 下拉列表			//
+		//////////////////////////////////
+		String[] mVoiceCodecsStrings = null;
+		mVoiceCodecsStrings = GetAllCodecs();			// 获取所有支持的Audio Codec
+		final Spinner spCodec = (Spinner) findViewById(R.id.spCodec);
+		spCodec.setMinimumWidth(200);
+		final ArrayAdapter<String> adapterCodecs = new ArrayAdapter<String>(this,
+									                        android.R.layout.simple_spinner_dropdown_item,
+									                        mVoiceCodecsStrings);
+		spCodec.setAdapter(adapterCodecs);
+		for (int i = 0; i < mVoiceCodecsStrings.length; ++i) {
+			if (mVoiceCodecsStrings[i].contains("SILK")) {
+					spCodec.setSelection(i);
+					break;
+			}
+		}
+		
+		spCodec.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+			public void onItemSelected(AdapterView adapterView, View view, int position, long id) {
+				Log.v(TAG," ########## spCodec position is "+Integer.toString(position)+" ########## ");
+				_codecIndex = position;
+			}
+  
+			public void onNothingSelected(AdapterView adapterView) {
+				WebrtcLog("No setting1 selected");
+			}
+		});
+
+		//////////////////////////////////
+		// 			AECM 下拉列表			//
+		//////////////////////////////////
+        spAECM = (Spinner) findViewById(R.id.spAECM);
+        spAECM.setMinimumWidth(200);
+        String aecm[] = {"EC off", "AECM"};
+        ArrayAdapter<String> adapterAECM = new ArrayAdapter<String>(this,
+        															android.R.layout.simple_spinner_dropdown_item,
+        															aecm);
+        spAECM.setAdapter(adapterAECM);
+        spAECM.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+        	public void onItemSelected(AdapterView adapterView, View view, int position, long id) {
+            	Log.v(TAG," ########## spAECM position is "+position+" ########## ");
+            	_ecIndex = position;
+            	int ECmode = 4;
+            	boolean flag;
+
+            	if (_ecIndex != 0) {
+            		flag = true;
+            	} else {
+            		flag = false;
+            	}
+            	
+            	WebrtcLog("SetAecmStatus: "+flag +" "+ECmode);
+            	
+        		if (0 != SetECStatus(flag, ECmode)) {
+                    WebrtcLog("VoE set EC status failed");
+                }
+            }
+        	
+            public void onNothingSelected(AdapterView adapterView) {
+            }
+        });
+        
+		//////////////////////////////////
+		// 		NS 下拉列表				//
+		//////////////////////////////////
+		spNS = (Spinner) findViewById(R.id.spNS);
+		spNS.setMinimumWidth(200);
+		String ns[] = {"NS off", "NS low", "NS moderate", "NS high", "NS very high"};
+		final ArrayAdapter<String> adapterNS = new ArrayAdapter<String>(this,
+									                        android.R.layout.simple_spinner_dropdown_item,
+									                        ns);
+		spNS.setAdapter(adapterNS);
+		spNS.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+			public void onItemSelected(AdapterView adapterView, View view, int position, long id) {
+				Log.v(TAG," ########## spNS position is "+Integer.toString(position)+" ########## ");
+				_nsIndex = position;
+				boolean flag;
+				
+				// Change NS
+				if (_nsIndex != 0) {
+					flag = true;
+				} else {
+					flag = false;
+				}
+				
+				if (0 != SetNSStatus(flag, position + 2)) {
+					WebrtcLog("VoE set NS status failed");
+				}
+			}
+		
+			public void onNothingSelected(AdapterView adapterView) {
+				WebrtcLog("No setting1 selected");
+			}
+		});
+		
+		//////////////////////////////////
+		// 		AGC 下拉列表				//
+		//////////////////////////////////
+		spAGC = (Spinner) findViewById(R.id.spAGC);
+		spAGC.setMinimumWidth(200);
+		String agc[] = {"AGC off", "AGC adaptive", "AGC fixed"};
+		final ArrayAdapter<String> adapterAGC = new ArrayAdapter<String>(this,
+					                        							android.R.layout.simple_spinner_dropdown_item,
+					                        							agc);
+		spAGC.setAdapter(adapterAGC);
+		spAGC.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+			public void onItemSelected(AdapterView adapterView, View view, int position, long id) {
+				Log.v(TAG," ########## spAGC position is "+Integer.toString(position)+" ########## ");
+				_agcIndex = position;
+				boolean flag;
+			
+				// Change AGC
+				if (_agcIndex != 0) {
+					flag = true;
+				} else {
+					flag = false;
+				}
+				
+				if (0 != SetAGCStatus(flag, position + 2)) {
+	                  WebrtcLog("VoE set AGC status failed");
+	            }
+			}
+			
+			public void onNothingSelected(AdapterView adapterView) {
+				WebrtcLog("No setting1 selected");
+			}
+		});
+		
+		//////////////////////////////////
+		// 		VAD 下拉列表				//
+		//////////////////////////////////
+		final Spinner spVAD = (Spinner) findViewById(R.id.spVAD);
+		spVAD.setMinimumWidth(200);
+		String vad[] = {"VAD off", "VAD conventional", "VAD high rate", "VAD mid rate", "VAD low rate"};
+		final ArrayAdapter<String> adapterVAD = new ArrayAdapter<String>(this,
+		                    											android.R.layout.simple_spinner_dropdown_item,
+		                    											vad);			
+		spVAD.setAdapter(adapterVAD);
+		spVAD.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+			public void onItemSelected(AdapterView adapterView, View view, int position, long id) {
+				Log.v(TAG," ########## spVAD position is "+Integer.toString(position)+" ########## ");
+				_vadIndex = position;
+				boolean flag;
+				
+				// Change AGC
+				if (_vadIndex != 0) {
+					flag = true;
+				} else {
+					flag = false;
+				}
+				
+				if (0 != SetVADStatus(_channel, flag, position - 1)) {
+                  WebrtcLog("VoE set VAD status failed");
+              }
+			}
+			
+			public void onNothingSelected(AdapterView adapterView) {
+				WebrtcLog("No setting1 selected");
+			}
+		});
+
+		
+//        // Get max Android volume and adjust default volume to map exactly to an
+//        // Android level
+//        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+//        _maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+//        if (_maxVolume <= 0) {
+//            WebrtcLog("Could not get max volume!");
+//        } else {
+//        	WebrtcLog(" ####### get max volume! = "+_maxVolume+" ####### ");
+//            int androidVolumeLevel = (_volumeLevel * _maxVolume) / 255;
+//            _volumeLevel = (androidVolumeLevel * 255) / _maxVolume;
+//        }
+
+        WebrtcLog(" ############ onCreate() finish ############ ");
+        
+       
+    }
+
+    // Will be called when activity is shutdown.
+    // NOTE: Activity may be killed without this function being called,
+    // but then we should not need to clean up.
+    protected void onDestroy() {
+    	Log.i(TAG, "Call OnDestroy()");
+        super.onDestroy();
+        
+        // Delete VoiceEngine
+        Delete();
+        WebrtcLog(" ############ onDestroy() finish ############ ");
+    }
+
+//    private void ShutdownVoE() {
+//        // Delete channel
+//        if (0 != DeleteChannel(_channel)) {
+//            WebrtcLog("VoE delete channel failed");
+//        }
+//
+//        // Terminate
+//        if (0 != Terminate()) {
+//            WebrtcLog("VoE terminate failed");
+//        }
+//    }
+    
+    //////////////////////////////////////////////////////////////////////////////
+    //			startCall()  - "Start Call" button listener function			//
+    //////////////////////////////////////////////////////////////////////////////
+    int startCall() {
+    	
+    	Log.v(TAG,"Danny : "+this);
+    	
+    	// Initialize 初始化设备
+        Log.v(TAG," ####### Init(false, false) ######## ");
+        if (0 != Init(false, false)) {
+            WebrtcLog("VoE init failed");
+        }
+
+        // Create channel 创建频道
+        Log.v(TAG," ####### CreateChannel() ######## ");
+        _channel = CreateChannel();
+        if (0 != _channel) {
+            WebrtcLog(" ##### VoE create channel failed ########");
+        }
+    	    	
+    	// 设置比特率和丢包率
+    	int new_bitrate = Integer.parseInt((String)edBitRate.getText().toString());
+    	int new_lossPercentage = Integer.parseInt((String)edLossPercentage.getText().toString());
+        Log.v(TAG,"### new_bitrate="+new_bitrate+" new_lossPercentage="+new_lossPercentage);
+    	SetParam(new_bitrate, new_lossPercentage);
+    	
+    	// 获取编辑框中的IP地址
+    	_destinationIP = (String)edIpAddr.getText().toString();
+    	Log.v(TAG," ### IP = "+_destinationIP+" ###");
+    	
+        if (enableReceive == true) {
+            // 设置本地接收端口
+        	Log.v(TAG," ####### SetLocalReceiver(_channel, _receivePort) ######## ");
+            if (0 != SetLocalReceiver(_channel, _receivePort)) {
+                WebrtcLog("VoE set local receiver failed");
+            }
+            
+            // 开始监听并接收数据
+            Log.v(TAG," ####### StartListen(_channel) ######## ");
+            if (0 != StartListen(_channel)) {
+                WebrtcLog("VoE start listen failed");
+                return -1;
+            }
+
+            // 设置扬声器默认状态为 关闭
+            Log.v(TAG," ####### SetLoudspeakerStatus(false) ######## ");
+            if (0 != SetLoudspeakerStatus(false)) {
+                WebrtcLog("VoE set louspeaker status failed");
+                return -1;
+            }
+
+            // 开始播放远端数据
+            Log.v(TAG," ####### StartPlayout(_channel) ######## ");
+            if (0 != StartPlayout(_channel)) {
+                WebrtcLog("VoE start playout failed");
+                return -1;
+            }
+        }
+        
+        // 高通滤波
+    	//SetHighPassFilter(true);
+    	spAECM.setSelection(1);
+    	SetECStatus(true, ECmode);
+    	spNS.setSelection(3);
+    	SetNSStatus(true,NSmode);
+    	SetRxNsStatus(_channel,true,NSmode);
+    	//kAgcAdaptiveDigital=3,kAgcFixedDigital=4
+    	SetAGCStatus(true, AGCmode);
+    	//SetRxAgcStatus(_channel,true,2);
+    	spAGC.setSelection(2);
+    	
+
+        // 设置发送目标IP和端口
+        if (enableSend == true) {
+        	Log.v(TAG," ####### SetSendDestination(_channel, _destinationPort, _destinationIP) ######## ");
+            if (0 != SetSendDestination(_channel, _destinationPort, _destinationIP)) {
+                WebrtcLog("VoE set send  destination failed");
+                return -1;
+            }
+            
+            // 设置数据的编解码器
+            Log.v(TAG," ####### SetSendCodec(_channel, _codecIndex("+_codecIndex+")) ######## ");
+            if (0 != SetSendCodec(_channel, _codecIndex)) {
+                WebrtcLog("VoE set send codec failed");
+                return -1;
+            }
+            
+            // 开始发送数据
+            Log.v(TAG," ####### StartSend(_channel) ######## ");
+            if (0 != StartSend(_channel)) {
+                WebrtcLog("VoE start send failed");
+                return -1;
+            }
+        }
+        return 0;
+    }
+    
+
+    int stopCall() {
+        if (enableSend == true) {
+            // Stop send
+            if (0 != StopSend(_channel)) {
+                WebrtcLog("VoE stop send failed");
+                return -1;
+            }
+        }
+
+        if (enableReceive == true) {
+            // Stop listen
+            if (0 != StopListen(_channel)) {
+                WebrtcLog("VoE stop listen failed");
+                return -1;
+            }
+
+            // Stop playout
+            if (0 != StopPlayout(_channel)) {
+                WebrtcLog("VoE stop playout failed");
+                return -1;
+            }
+
+            // Route audio to loudspeaker
+            if (0 != SetLoudspeakerStatus(true)) {
+                WebrtcLog("VoE set louspeaker status failed");
+                return -1;
+            }
+        }
+        
+//        ShutdownVoE();
+        
+        // Delete channel
+        if (0 != DeleteChannel(_channel)) {
+            WebrtcLog("VoE delete channel failed");
+        }
+
+        // Terminate
+        if (0 != Terminate()) {
+            WebrtcLog("VoE terminate failed");
+        }
+        
+
+        return 0;
+    }
+
+    
+    //打开扬声器
+    public void OpenSpeaker() {
+        try {
+	        AudioManager audioManager =	(AudioManager) getSystemService(Context.AUDIO_SERVICE);
+	        audioManager.setMode(AudioManager.ROUTE_SPEAKER);
+	        currVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);		// 保存当前音量，关闭扬声器后，设置回去
+	        if(!audioManager.isSpeakerphoneOn()) {
+	        	Log.v(TAG, "打开扬声器");
+	        	audioManager.setSpeakerphoneOn(true);
+	        	audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL,
+	        								 audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL ),
+	        								 AudioManager.STREAM_VOICE_CALL);
+	        	
+	        }
+        } catch (Exception e) {
+           e.printStackTrace();
+        }
+
+        
+        SetAecmMode(3, true);
+        //SetAecmMode(3, true);
+        
+        Toast.makeText(getBaseContext(),"揚聲器已經開啟",Toast.LENGTH_SHORT).show();
+	}
+
+
+	//关闭扬声器
+	public void CloseSpeaker() {
+		try {
+			AudioManager audioManager =	(AudioManager) getSystemService(Context.AUDIO_SERVICE);
+			audioManager.setMode(AudioManager.MODE_IN_CALL);
+			if(audioManager.isSpeakerphoneOn()) {
+				Log.v(TAG, "关闭扬声器");
+				audioManager.setSpeakerphoneOn(false);
+				audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL,currVolume, AudioManager.STREAM_VOICE_CALL);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		SetAecmMode(1, false);
+		Toast.makeText(getBaseContext(),"揚聲器已經關閉",Toast.LENGTH_SHORT).show();
+   }
+
+
+    private void WebrtcLog(String msg) {
+        Log.d("*Webrtc*", msg);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ////////////////// 			Native function  			///////////////////
+    ///////////////////////////////////////////////////////////////////////////
+    private native static boolean NativeInit();							// 未使用
+//    private native int RunAutoTest(int testType, int extendedSel);	
+    
+    public native boolean SetParam(int bitRate, int lossPencentage);
+    
+    private native boolean Create();									// 实例化对象
+    private native boolean Delete();									
+    private native int Init(boolean enableTrace, boolean useExtTrans);	// 初始化
+    private native int Terminate();										
+    private native int CreateChannel();									// 创建频道
+    private native int DeleteChannel(int channel);
+    private native int SetLocalReceiver(int channel, int port);			// 创建监听
+    private native int SetSendDestination(int channel, int port, String ipaddr);	// 设置目标地址
+    private native int StartListen(int channel);						// 接收数据
+    private native int StartPlayout(int channel);						// 播放数据
+    private native int StartSend(int channel);							// 发送数据
+    private native int StopListen(int channel);
+    private native int StopPlayout(int channel);
+    private native int StopSend(int channel);
+    
+
+    private native int NumOfCodecs();									// 编解码器数目
+    private native String[] GetAllCodecs();								// 获取所有支持的Audio Codec
+    private native int SetSendCodec(int channel, int index);			// 设置发送时用的codec
+    private native int SetVADStatus(int channel, boolean enable, int mode);
+    private native int SetNSStatus(boolean enable, int mode);
+    private native int SetAGCStatus(boolean enable, int mode);
+    private native int SetECStatus(boolean enable, int mode);
+    private native int SetHighPassFilter(boolean enable);				//开启高通滤波
+    private native int SetAecmMode(int mode, boolean enable);
+    private native int SetRxNsStatus(int channel,boolean enable, int mode);
+    private native int SetRxAgcStatus(int channel,boolean enable, int mode);
+    
+
+    
+    private native int SetSpeakerVolume(int volume);
+    private native int SetLoudspeakerStatus(boolean enable);
+
+    static {
+        Log.d("*Webrtc*", "Loading webrtc-voice-demo-jni...");
+        System.loadLibrary("webrtcx");
+    }
+}

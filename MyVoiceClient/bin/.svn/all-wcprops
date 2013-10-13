@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/stone/!svn/ver/313/trunk/sources/webrtc/TestWebrtcAudio/bin
+END
+TestWebrtcAudio.apk
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/stone/!svn/ver/313/trunk/sources/webrtc/TestWebrtcAudio/bin/TestWebrtcAudio.apk
+END
+AndroidManifest.xml
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/stone/!svn/ver/313/trunk/sources/webrtc/TestWebrtcAudio/bin/AndroidManifest.xml
+END
+resources.ap_
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svn/stone/!svn/ver/313/trunk/sources/webrtc/TestWebrtcAudio/bin/resources.ap_
+END
+AndroidTest.apk
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svn/stone/!svn/ver/4/trunk/sources/webrtc/TestWebrtcAudio/bin/AndroidTest.apk
+END
+classes.dex
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/stone/!svn/ver/313/trunk/sources/webrtc/TestWebrtcAudio/bin/classes.dex
+END

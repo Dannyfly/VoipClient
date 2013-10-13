@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svn/stone/!svn/ver/4/trunk/sources/webrtc/TestWebrtcAudio/obj/local/armeabi-v7a
+END
+linker
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svn/stone/!svn/ver/4/trunk/sources/webrtc/TestWebrtcAudio/obj/local/armeabi-v7a/linker
+END
+gdb.setup
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svn/stone/!svn/ver/4/trunk/sources/webrtc/TestWebrtcAudio/obj/local/armeabi-v7a/gdb.setup
+END
+app_process
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/stone/!svn/ver/4/trunk/sources/webrtc/TestWebrtcAudio/obj/local/armeabi-v7a/app_process
+END

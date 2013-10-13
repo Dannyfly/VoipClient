@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2011 The WebRTC project authors. All Rights Reserved. -->
+<!--                                                                     -->
+<!-- Use of this source code is governed by a BSD-style license          -->
+<!-- that can be found in the LICENSE file in the root of the source     -->
+<!-- tree. An additional intellectual property rights grant can be found -->
+<!-- in the file PATENTS.  All contributing project authors may          -->
+<!-- be found in the AUTHORS file in the root of the source tree.        -->
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	      android:orientation="vertical"
+	      android:layout_width="fill_parent"
+	      android:layout_height="fill_parent">
+  <EditText android:text="127.0.0.1"
+	    android:id="@+id/etIpAddr"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content">
+  </EditText>
+  
+  <TableLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:shrinkColumns="0,1" > 
+	<TableRow>
+	    <TextView android:text="bitRate: "
+	    android:id="@+id/TextView02"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content">
+    	</TextView>
+	    <EditText android:text="16000"
+	    android:id="@+id/etBitRate"
+	    android:layout_width="80dip"
+	    android:layout_height="wrap_content">
+  		</EditText>
+  		<TextView android:text="lossPercentage: "
+	    android:id="@+id/TextView02"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content">
+    	</TextView>
+  		<EditText android:text="0"
+	    android:id="@+id/etLossPercentage"
+	    android:layout_width="80dip"
+	    android:layout_height="wrap_content">
+  		</EditText>
+	</TableRow>
+  </TableLayout>
+  
+  <Button android:text="Start Call"
+	  android:id="@+id/btStartCall"
+	  android:layout_width="wrap_content"
+	  android:layout_height="wrap_content">
+  </Button>
+  <Spinner android:id="@+id/spCodec"
+	   android:layout_width="wrap_content"
+	   android:layout_height="wrap_content">
+  </Spinner>
+  
+<TableLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:shrinkColumns="0,1" >
+	<TableRow>
+	    <Spinner android:id="@+id/spAECM"
+		   android:layout_width="wrap_content"
+		   android:layout_height="wrap_content">
+		</Spinner>
+		<Spinner android:id="@+id/spNS"
+		   android:layout_width="wrap_content"
+		   android:layout_height="wrap_content">
+		</Spinner>
+	</TableRow>
+</TableLayout>
+
+<TableLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:shrinkColumns="0,1" > 
+	<TableRow>
+	    <Spinner android:id="@+id/spAGC"
+		   android:layout_width="wrap_content"
+		   android:layout_height="wrap_content">
+		</Spinner>
+		<Spinner android:id="@+id/spVAD"
+		   android:layout_width="wrap_content"
+		   android:layout_height="wrap_content">
+		</Spinner>
+	</TableRow>
+</TableLayout>
+  
+  <Button android:text="Close App"
+	  android:id="@+id/btStopCall"
+	  android:layout_width="wrap_content"
+	  android:layout_height="wrap_content">
+  </Button>
+  
+  <Button android:text="SpeakerOn"
+	  android:id="@+id/btSpeakerOn"
+	  android:layout_width="wrap_content"
+	  android:layout_height="wrap_content">
+  </Button>
+</LinearLayout>
