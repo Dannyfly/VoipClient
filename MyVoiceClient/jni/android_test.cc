@@ -1,17 +1,7 @@
-/*
- *  Copyright (c) 2011 The WebRTC project authors. All Rights Reserved.
- *
- *  Use of this source code is governed by a BSD-style license
- *  that can be found in the LICENSE file in the root of the source
- *  tree. An additional intellectual property rights grant can be found
- *  in the file PATENTS.  All contributing project authors may
- *  be found in the AUTHORS file in the root of the source tree.
- */
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
- #include <assert.h>
+#include <assert.h>
 
 //#ifdef OPEN_LOG_TRACE
 #ifdef ANDROID
@@ -22,7 +12,6 @@
 //#endif
  
 #include "org_webrtc_voiceengine_test_AndroidTest.h"
-
 
 #include <string>
 using namespace std;
@@ -142,12 +131,12 @@ typedef struct
     my_transportation* extTrans;
     JavaVM* jvm;
 
-    /////////////////////////////
-    // VoVoENetEqStats* neteqstatus;
-    /////////////////////////////
+    // VoVoENetEqStats* neteqstatus;    // jitter buffer的大小
 
 } VoiceEngineData;
 
+
+#if 0
 // my_transportation is used when useExtTrans is enabled
 class my_transportation : public Transport
 {
@@ -173,6 +162,7 @@ int my_transportation::SendRTCPPacket(int channel, const void *data, int len)
   netw->ReceivedRTCPPacket(channel, data, len);
   return len;
 }
+#endif
 
 //Global variables visible in this file
 static VoiceEngineData veData1;
@@ -188,7 +178,7 @@ static bool ReleaseSubApis(VoiceEngineData &veData);
 //////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////
-// JNI_OnLoad
+//              JNI_OnLoad
 //
 jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
 {
@@ -251,7 +241,7 @@ Java_org_webrtc_voiceengine_test_AndroidTest_NativeInit(
 }
 
 
-
+// 设置编码比特率和丢包率
 JNIEXPORT jboolean JNICALL Java_org_webrtc_voiceengine_test_AndroidTest_SetParam(
         JNIEnv *env,
         jobject context,
@@ -279,20 +269,9 @@ JNIEXPORT jboolean JNICALL Java_org_webrtc_voiceengine_test_AndroidTest_Create(
         jobject context)
 {
     MYLOG("enter Java_org_webrtc_voiceengine_test_AndroidTest_Create %p  %p ... ", env, context);
-
-    // FATAL(THIS_TAG, THIS_FILE, " #### Hello Danny ####");
-    // file(/Users/leipeilin/Desktop/stone/trunk/sources/webrtc/TestWebrtcAudio/jni/android_test.cc) , 
-    // line(322), 
-    // func(jboolean Java_org_webrtc_voiceengine_test_AndroidTest_Create(JNIEnv*, jobject)) __func__
-    // func(Java_org_webrtc_voiceengine_test_AndroidTest_Create)   ->  __FUNCTION__
-    // data(Jul 22 2013)
-    // time(13:42:00)
+说
     const char* str = "Java_org_webrtc_voiceengine_test_AndroidTest_Create";
     __android_log_print(ANDROID_LOG_ERROR, THIS_FILE, "%s%s", "Enter ", str);
-
-    // __android_log_print(ANDROID_LOG_ERROR, THIS_FILE, "file(%s) , line(%d), func(%s) data(%s) time(%s)", __FILE__, __LINE__, __FUNCTION__, __DATE__, __TIME__);
-
-    // MYLOG("fileName: %s , lineNo: %d", __FILE__, __LINE__);
     
     // Check if already created
     if (veData1.ve)
@@ -572,30 +551,7 @@ JNIEXPORT jint JNICALL Java_org_webrtc_voiceengine_test_AndroidTest_StartSend(
         jobject,
         jint channel)
 {
-    /*    int dscp(0), serviceType(-1), overrideDscp(0), res(0);
-     bool gqosEnabled(false), useSetSockOpt(false);
 
-     if (veData1.netw->SetSendTOS(channel, 13, useSetSockOpt) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to set TOS");
-     return -1;
-     }
-
-     res = veData1.netw->GetSendTOS(channel, dscp, useSetSockOpt);
-     if (res != 0 || dscp != 13 || useSetSockOpt != true)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to get TOS");
-     return -1;
-     } */
-
-    /* if (veData1.rtp_rtcp->SetFECStatus(channel, 1) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to enable FEC");
-     return -1;
-     } */
 #ifdef USE_SRTP
     VALIDATE_ENCRYPT_POINTER;
     bool useForRTCP = false;
@@ -659,13 +615,6 @@ JNIEXPORT jint JNICALL Java_org_webrtc_voiceengine_test_AndroidTest_StopSend(
         jobject,
         jint channel)
 {
-    /* if (veData1.rtp_rtcp->SetFECStatus(channel, 0) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to disable FEC");
-     return -1;
-     } */
-
 #ifdef USE_SRTP
     VALIDATE_ENCRYPT_POINTER;
     if (veData1.encrypt->DisableSRTPSend(channel) != 0)
@@ -932,18 +881,6 @@ Java_org_webrtc_voiceengine_test_AndroidTest_SetAGCStatus(
             break;
     }
 
-    /* AgcConfig agcConfig;
-     agcConfig.targetLeveldBOv = 3;
-     agcConfig.digitalCompressionGaindB = 50;
-     agcConfig.limiterEnable = 0;
-
-     if (veData1.apm->SetAGCConfig(agcConfig) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to set AGC config");
-     return -1;
-     } */
-
     return veData1.apm->SetAgcStatus(enable, AGCmode);
 }
 
@@ -1158,24 +1095,6 @@ Java_org_webrtc_voiceengine_test_AndroidTest_SetLoudspeakerStatus(
         return -1;
     }
 
-    /*VALIDATE_RTP_RTCP_POINTER;
-
-     if (veData1.rtp_rtcp->SetFECStatus(0, enable, -1) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Could not set FEC");
-     return -1;
-     }
-     else if(enable)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Could enable FEC");
-     }
-     else
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Could disable FEC");
-     }*/
 
     return 0;
 }
@@ -1253,18 +1172,6 @@ JNIEXPORT jint JNICALL Java_org_webrtc_voiceengine_test_AndroidTest_SetRxAgcStat
             AGCmode = (AgcModes) 17; // force error
             break;
     }
-
-     /*AgcConfig agcConfig;
-     agcConfig.targetLeveldBOv = 1;
-     agcConfig.digitalCompressionGaindB = 1;
-     agcConfig.limiterEnable = 1;
-
-     if (veData1.apm->SetAgcConfig(agcConfig) != 0)
-     {
-     __android_log_write(ANDROID_LOG_ERROR, WEBRTC_LOG_TAG,
-         "Failed to set AGC config");
-     return -1;
-     }*/
 
     return veData1.apm->SetRxAgcStatus(channel,enable, AGCmode);
 }
